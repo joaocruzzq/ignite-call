@@ -40,26 +40,132 @@ export function PrimaAdapter(): Adapter {
       }
     },
 
-    async getUserByAccount({ providerAccountId, provider }) {},
+    async getUserByAccount({ providerAccountId, provider }) {
+      const { user } = await prisma.account.findUniqueOrThrow({
+        where: {
+          provider_provider_account_id: {
+            provider,
+            provider_account_id: providerAccountId
+          }
+        },
 
-    async updateUser(user) {},
+        include: {
+          user: true
+        }
+      })
 
-    async deleteUser(userId) {},
+      return {
+         id: user.id,
+         name: user.name,
+         email: user.email!,
+         emailVerified: null,
+         username: user.username,
+         avatar_url: user.avatar_url!,
+      }
+    },
 
-    async linkAccount(account) {},
+    async updateUser(user) {
+      const prismaUser = await prisma.user.update({
+        where: {
+          id: user.id!
+        },
 
-    async unlinkAccount({ providerAccountId, provider }) {},
+        data: {
+          name: user.name,
+          email: user.email,
+          avatar_url: user.avatar_url
+        }
+      })
 
-    async createSession({ sessionToken, userId, expires }) {},
+      return {
+        id: prismaUser.id,
+        emailVerified: null,
+        name: prismaUser.name,
+        email: prismaUser.email!,
+        username: prismaUser.username,
+        avatar_url: prismaUser.avatar_url!,
+      }
+    },
 
-    async getSessionAndUser(sessionToken) {},
+    async linkAccount(account: any) {
+      await prisma.account.create({
+        data: {
+          type: account.type,
+          scope: account.scope,
+          user_id: account.userId,
+          id_token: account.id_token,
+          provider: account.provider,
+          token_type: account.token_type,
+          expires_at: account.expires_at,
+          refresh_token: account.refresh_token,
+          session_state: account.session_state,
+          provider_account_id: account.providerAccountId,
+        }
+      })
+    },
 
-    async updateSession({ sessionToken }) {},
+    async createSession({ sessionToken, userId, expires }) {
+      await prisma.session.create({
+        data: {
+          expires,
+          user_id: userId,
+          session_token: sessionToken
+        }
+      })
 
-    async deleteSession(sessionToken) {},
+      return {
+        userId,
+        expires,
+        sessionToken
+      }
+    },
 
-    async createVerificationToken({ identifier, expires, token }) {},
+    async getSessionAndUser(sessionToken) {
+      const { user, ...session } = await prisma.session.findUniqueOrThrow({
+        where: {
+          session_token: sessionToken
+        },
 
-    async useVerificationToken({ identifier, token }) {},
+        include: {
+          user: true
+        }
+      })
+
+      return {
+        session: {
+          userId: session.user_id,
+          expires: session.expires,
+          sessionToken: session.session_token
+        },
+
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email!,
+          emailVerified: null,
+          username: user.username,
+          avatar_url: user.avatar_url!
+        }
+      }
+    },
+
+    async updateSession({ sessionToken, userId, expires }) {
+      const prismaSession = await prisma.session.update({
+        where: {
+          session_token: sessionToken
+        },
+
+        data: {
+          expires,
+          user_id: userId
+        }
+      })
+
+      return {
+        userId: prismaSession.user_id,
+        expires: prismaSession.expires,
+        sessionToken: prismaSession.session_token
+      }
+    },
   }
 }
