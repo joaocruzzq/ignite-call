@@ -1,17 +1,59 @@
 import { prisma } from "../prisma"
 
-import { Adapter } from "next-auth/adapters"
+import { parseCookies, destroyCookie } from "nookies"
 
-export function PrimaAdapter(): Adapter {
+import { NextApiRequest, NextApiResponse } from "next"
+
+import { Adapter, AdapterUser } from "next-auth/adapters"
+
+export function PrismaAdapter(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Adapter {
   return {
-    async createUser(user) {},
+    async createUser(user: AdapterUser) {
+      const { '@ignitecall:userId': userIdOnCookies } = parseCookies({ req })
+
+      if(!userIdOnCookies) {
+        throw new Error("User ID not found on cookies.")
+      }
+
+      const prismaUser = await prisma.user.update({
+        where: {
+          id: userIdOnCookies
+        },
+
+        data: {
+          name: user.name,
+          email: user.email,
+          avatar_url: user.avatar_url
+        }
+      })
+
+      destroyCookie({ res }, "ignitecall:userId", {
+        path: "/"
+      })
+
+      return {
+        id: prismaUser.id,
+        emailVerified: null,
+        name: prismaUser.name,
+        email: prismaUser.email!,
+        username: prismaUser.username,
+        avatar_url: prismaUser.avatar_url!,
+      }
+    },
 
     async getUser(id) {
-      const user = await prisma.user.findUniqueOrThrow({
+      const user = await prisma.user.findUnique({
          where: {
             id
          }
       })
+
+      if(!user) {
+        return null
+      }
 
       return {
          id: user.id,
@@ -24,11 +66,15 @@ export function PrimaAdapter(): Adapter {
     },
 
     async getUserByEmail(email) {
-      const user = await prisma.user.findUniqueOrThrow({
+      const user = await prisma.user.findUnique({
          where: {
             email
          }
       })
+
+      if(!user) {
+        return null
+      }
 
       return {
          id: user.id,
@@ -41,7 +87,7 @@ export function PrimaAdapter(): Adapter {
     },
 
     async getUserByAccount({ providerAccountId, provider }) {
-      const { user } = await prisma.account.findUniqueOrThrow({
+      const account = await prisma.account.findUnique({
         where: {
           provider_provider_account_id: {
             provider,
@@ -53,6 +99,12 @@ export function PrimaAdapter(): Adapter {
           user: true
         }
       })
+
+      if(!account) {
+        return null
+      }
+
+      const { user } = account
 
       return {
          id: user.id,
@@ -121,7 +173,7 @@ export function PrimaAdapter(): Adapter {
     },
 
     async getSessionAndUser(sessionToken) {
-      const { user, ...session } = await prisma.session.findUniqueOrThrow({
+      const prismaSession = await prisma.session.findUnique({
         where: {
           session_token: sessionToken
         },
@@ -130,6 +182,12 @@ export function PrimaAdapter(): Adapter {
           user: true
         }
       })
+
+      if(!prismaSession) {
+        return null
+      }
+
+      const { user, ...session } = prismaSession
 
       return {
         session: {
@@ -167,5 +225,13 @@ export function PrimaAdapter(): Adapter {
         sessionToken: prismaSession.session_token
       }
     },
+
+    async deleteSession(sessionToken) {
+      await prisma.session.delete({
+        where: {
+          session_token: sessionToken
+        }
+      })
+    }
   }
 }
