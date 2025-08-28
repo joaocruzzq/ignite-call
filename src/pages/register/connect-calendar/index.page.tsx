@@ -7,7 +7,7 @@ import { Button, Heading, MultiStep, Text } from "@ignite-ui/react";
 import { useRouter } from "next/router";
 import { signIn, useSession } from "next-auth/react";
 
-export default function Register() {
+export default function ConnectCalendar() {
    const router = useRouter()
    const session = useSession()
 
