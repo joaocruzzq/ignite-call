@@ -2,13 +2,13 @@ import { prisma } from "../prisma"
 
 import { parseCookies, destroyCookie } from "nookies"
 
-import { NextApiRequest, NextApiResponse } from "next"
+import { NextApiRequest, NextApiResponse, NextPageContext } from "next"
 
 import { Adapter, AdapterUser } from "next-auth/adapters"
 
 export function PrismaAdapter(
-  req: NextApiRequest,
-  res: NextApiResponse
+  req: NextApiRequest | NextPageContext["req"],
+  res: NextApiResponse | NextPageContext["res"]
 ): Adapter {
   return {
     async createUser(user: AdapterUser) {
